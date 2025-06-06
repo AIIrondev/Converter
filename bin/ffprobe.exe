@@ -1,0 +1,2 @@
+# This is a placeholder file for FFprobe.exe
+# The actual binary will be included when compiling with PyInstaller
