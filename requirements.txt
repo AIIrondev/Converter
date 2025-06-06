@@ -1,0 +1,9 @@
+# Audio Format Converter Dependencies
+# This application primarily uses Python standard library modules
+# No external pip packages are required for basic functionality
+
+# For building executable with PyInstaller
+pyinstaller>=5.0
+
+# Note: tkinter is included with Python installations by default
+# Note: FFmpeg binaries are included in the bin/ directory or downloaded automatically

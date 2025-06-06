@@ -1,3 +1,0 @@
-@echo off
-echo Starting Audio Format Converter...
-start "" "%~dp0AudioFormatConverter.exe"
