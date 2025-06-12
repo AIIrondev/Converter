@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
-# AudioFormatConverter PyInstaller Specification
-# Updated for Multiple Input Folders support
+# MediaFormatConverter PyInstaller Specification
+# Updated for Multiple Input Folders and Video Format support
 
 import sys
 from pathlib import Path
@@ -42,7 +42,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='AudioFormatConverter',
+    name='MediaFormatConverter',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

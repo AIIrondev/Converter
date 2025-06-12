@@ -1,14 +1,15 @@
-# Audio Format Converter
+# Media Format Converter
 
-A powerful, user-friendly tool to convert between various audio formats with support for multiple input directories and batch processing. No annoying command windows during conversion!
+A powerful, user-friendly tool to convert between various audio and video formats with support for multiple input directories and batch processing. Features optimized MPEG to MP4 conversion! No annoying command windows during conversion!
 
 ## ✨ Features
 
-- **Multiple Audio Formats**: Convert between MP3, WAV, OGG, FLAC, M4A, AAC, WMA
+- **Multiple Media Formats**: Convert between audio (MP3, WAV, OGG, FLAC, M4A, AAC, WMA) and video (MP4, AVI, MOV, WMV, FLV, WEBM, MKV, MPEG, MPG) formats
+- **Optimized MPEG to MP4**: Special optimizations for converting MPEG files to high-quality MP4
 - **Multiple Input Directories**: Select and process files from multiple folders simultaneously
 - **Batch Processing**: Convert multiple files at once with parallel processing
 - **Folder Structure Preservation**: Maintains your original folder organization
-- **Modern GUI**: Intuitive interface with drag-and-drop-like folder management
+- **Modern GUI**: Intuitive interface with media type selection and format management
 - **Command Line Support**: Full CLI support for automation and scripting
 - **Silent Operation**: No command windows or console popups during conversion
 - **Progress Tracking**: Real-time progress bars and detailed conversion logs
@@ -20,7 +21,8 @@ A powerful, user-friendly tool to convert between various audio formats with sup
 ### Option 1: Use Pre-built Executable (Recommended)
 1. Download `AudioFormatConverter.exe` from releases
 2. Double-click to launch the GUI
-3. Add your input folders, select formats, and convert!
+3. Select media type (Audio or Video)
+4. Add your input folders, select formats, and convert!
 
 ### Option 2: Build from Source
 1. Clone this repository
@@ -35,16 +37,19 @@ A powerful, user-friendly tool to convert between various audio formats with sup
 ### Graphical User Interface (GUI)
 
 1. **Launch**: Double-click `AudioFormatConverter.exe`
-2. **Select Formats**: Choose source and target formats from dropdown menus
-3. **Add Input Directories**: 
-   - Click "Add Folder" to select directories containing your audio files
+2. **Select Media Type**: Choose between Audio and Video conversion
+3. **Select Formats**: Choose source and target formats from dropdown menus (optimized for MPEG to MP4)
+4. **Add Input Directories**: 
+   - Click "Add Folder" to select directories containing your media files
    - Add multiple directories as needed
    - Use "Remove Selected" or "Clear All" to manage your list
-4. **Set Output Directory**: Click "Browse" to choose where converted files will be saved
-5. **Preview**: Click "Check Folders" to see how many files will be converted
-6. **Convert**: Click "Convert" to start the batch conversion process
+5. **Set Output Directory**: Click "Browse" to choose where converted files will be saved
+6. **Preview**: Click "Check Folders" to see how many files will be converted
+7. **Convert**: Click "Convert" to start the batch conversion process
 
 **Pro Tips:**
+- Video conversions take longer than audio conversions due to file size
+- MPEG to MP4 conversions use optimized settings for high quality
 - The folder structure from each input directory will be preserved in the output
 - Use "Check Folders" to verify you have the right files before converting
 - Adjust thread count for optimal performance on your system
@@ -54,24 +59,27 @@ A powerful, user-friendly tool to convert between various audio formats with sup
 Perfect for automation, batch scripts, and power users:
 
 ```bash
-# Convert from single directory
+# Convert MPEG videos to MP4 (optimized settings)
+AudioFormatConverter.exe -i "C:\Videos\MPEG" -o "C:\Videos\MP4" -sf mpeg -tf mp4
+
+# Convert from single directory (audio)
 AudioFormatConverter.exe -i "C:\Music\MP3s" -o "C:\Music\WAVs" -sf mp3 -tf wav
 
-# Convert from multiple directories
-AudioFormatConverter.exe -i "C:\Music\Album1" "C:\Music\Album2" "C:\Downloads\Audio" -o "C:\Converted" -sf flac -tf mp3
+# Convert from multiple directories (mixed media types)
+AudioFormatConverter.exe -i "C:\Media\Album1" "C:\Media\Videos" "C:\Downloads\Media" -o "C:\Converted" -sf flac -tf mp3
 
-# Use custom thread count
-AudioFormatConverter.exe -i "C:\Music" -o "C:\Output" -sf mp3 -tf wav -t 8
+# Use custom thread count for large video files
+AudioFormatConverter.exe -i "C:\Videos" -o "C:\Output" -sf avi -tf mp4 -t 4
 ```
 
 #### Command Line Options
 
 | Option | Description | Example |
 |--------|-------------|---------|
-| `-i, --input` | Input directory(ies) | `-i "C:\Music" "C:\Downloads"` |
+| `-i, --input` | Input directory(ies) | `-i "C:\Music" "C:\Videos"` |
 | `-o, --output` | Output directory | `-o "C:\Converted"` |
-| `-sf, --source-format` | Source format | `-sf mp3` |
-| `-tf, --target-format` | Target format | `-tf wav` |
+| `-sf, --source-format` | Source format | `-sf mpeg` or `-sf mp3` |
+| `-tf, --target-format` | Target format | `-tf mp4` or `-tf wav` |
 | `-t, --threads` | Number of threads | `-t 4` |
 | `--gui` | Launch GUI mode | `--gui` |
 
@@ -125,7 +133,7 @@ pyinstaller AudioFormatConverter.spec --clean --noconfirm
 
 ```
 Converter/
-├── audio_format_converter.py    # Main application source
+├── audio_format_converter.py    # Main application source (handles both audio & video)
 ├── AudioFormatConverter.spec    # PyInstaller build configuration
 ├── build_and_run.bat           # Windows build script
 ├── build_and_run.ps1           # PowerShell build script
@@ -141,9 +149,14 @@ Converter/
 ## ⚡ Performance & Quality
 
 - **Multi-threaded Processing**: Utilizes all CPU cores by default
-- **High-Quality Conversion**: Uses FFmpeg for professional-grade audio processing
+- **High-Quality Conversion**: Uses FFmpeg for professional-grade media processing
 - **Memory Efficient**: Processes files in batches to handle large libraries
 - **Progress Tracking**: Real-time progress bars and ETA estimates
+- **Optimized Video Settings**: 
+  - MP4 output uses H.264 codec with AAC audio
+  - CRF 23 for optimal quality-to-size ratio
+  - Medium preset for balanced speed/quality
+- **Format-Specific Optimizations**: Different codec settings for different output formats
 
 ## 🔧 Troubleshooting
 
@@ -177,8 +190,9 @@ Converter/
 3. Test with a small number of files first
 4. Create an issue on GitHub with log details
 
-## 🎵 Supported Formats
+## 🎵🎬 Supported Formats
 
+### Audio Formats
 | Format | Extension | Description |
 |--------|-----------|-------------|
 | MP3 | `.mp3` | MPEG-1 Audio Layer 3 |
@@ -188,6 +202,21 @@ Converter/
 | M4A | `.m4a` | MPEG-4 Audio |
 | AAC | `.aac` | Advanced Audio Coding |
 | WMA | `.wma` | Windows Media Audio |
+
+### Video Formats
+| Format | Extension | Description |
+|--------|-----------|-------------|
+| MP4 | `.mp4` | MPEG-4 Video (Recommended output) |
+| AVI | `.avi` | Audio Video Interleave |
+| MOV | `.mov` | QuickTime Movie |
+| WMV | `.wmv` | Windows Media Video |
+| FLV | `.flv` | Flash Video |
+| WEBM | `.webm` | Web Media |
+| MKV | `.mkv` | Matroska Video |
+| MPEG | `.mpeg, .mpg` | Moving Picture Experts Group |
+| TS | `.ts, .mts, .m2ts` | Transport Stream |
+
+**💡 Special Optimization**: MPEG to MP4 conversions use optimized settings (H.264 video, AAC audio, CRF 23) for the best quality-to-size ratio.
 
 ## 🏗️ Development
 

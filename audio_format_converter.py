@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
-Audio Format Converter
+Media Format Converter
 
-A comprehensive audio conversion tool that supports batch conversion between various audio formats
-using FFmpeg. Features both command-line and GUI interfaces.
+A comprehensive media conversion tool that supports batch conversion between various audio and video formats
+using FFmpeg. Features both command-line and GUI interfaces with special focus on MPEG to MP4 conversion.
 
-Supported Formats: MP3, WAV, OGG, FLAC, M4A, AAC, WMA
+Supported Audio Formats: MP3, WAV, OGG, FLAC, M4A, AAC, WMA
+Supported Video Formats: MP4, AVI, MOV, WMV, FLV, WEBM, MKV, MPEG, MPG
 
-Author: Audio Format Converter
-Version: 2.0
+Author: Media Format Converter
+Version: 3.0
 """
 
 import sys
@@ -84,16 +85,24 @@ def download_ffmpeg_windows():
 
 def find_ffmpeg():
     """Find FFmpeg executable on the system"""
-    # Try to find FFmpeg in PATH
-    ffmpeg = shutil.which("ffmpeg")
-    if ffmpeg:
-        return ffmpeg
+    # Check downloaded FFmpeg first (most reliable)
+    if platform.system() == "Windows":
+        downloaded_ffmpeg = os.path.join(os.environ.get("LOCALAPPDATA", ""), "FFmpeg", "bin", "ffmpeg.exe")
+        if os.path.isfile(downloaded_ffmpeg):
+            return downloaded_ffmpeg
     
-    # Check local bin directory first (project-specific FFmpeg)
+    # Check local bin directory (project-specific FFmpeg)
     script_dir = os.path.dirname(os.path.abspath(__file__))
     local_ffmpeg = os.path.join(script_dir, "bin", "ffmpeg.exe" if platform.system() == "Windows" else "ffmpeg")
     if os.path.isfile(local_ffmpeg):
-        return local_ffmpeg
+        # Test if local FFmpeg works before using it
+        if check_ffmpeg_works(local_ffmpeg):
+            return local_ffmpeg
+    
+    # Try to find FFmpeg in PATH
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg and check_ffmpeg_works(ffmpeg):
+        return ffmpeg
     
     # Common installation locations based on OS
     if platform.system() == "Windows":
@@ -101,7 +110,6 @@ def find_ffmpeg():
             r"C:\FFmpeg\bin\ffmpeg.exe",
             r"C:\Program Files\FFmpeg\bin\ffmpeg.exe",
             r"C:\Program Files (x86)\FFmpeg\bin\ffmpeg.exe",
-            os.path.join(os.environ.get("LOCALAPPDATA", ""), "FFmpeg", "bin", "ffmpeg.exe"),
             os.path.join(os.environ.get("APPDATA", ""), "FFmpeg", "bin", "ffmpeg.exe")
         ]
     else:  # Linux/Mac
@@ -114,7 +122,7 @@ def find_ffmpeg():
     
     # Check common locations
     for location in common_locations:
-        if os.path.isfile(location):
+        if os.path.isfile(location) and check_ffmpeg_works(location):
             return location
     
     # If not found and on Windows, try to download and install
@@ -126,30 +134,34 @@ def find_ffmpeg():
 
 def find_ffprobe(ffmpeg_path=None):
     """Find ffprobe executable on the system"""
-    # Try to find ffprobe in PATH
-    ffprobe = shutil.which("ffprobe")
-    if ffprobe:
-        return ffprobe
-    
-    # If we have ffmpeg path, try to find ffprobe in the same directory
+    # If we have ffmpeg path, try to find ffprobe in the same directory first
     if ffmpeg_path:
         ffprobe_path = os.path.join(os.path.dirname(ffmpeg_path), "ffprobe" + (".exe" if platform.system() == "Windows" else ""))
         if os.path.isfile(ffprobe_path):
             return ffprobe_path
+    
+    # Check downloaded FFmpeg directory first (most reliable)
+    if platform.system() == "Windows":
+        downloaded_ffprobe = os.path.join(os.environ.get("LOCALAPPDATA", ""), "FFmpeg", "bin", "ffprobe.exe")
+        if os.path.isfile(downloaded_ffprobe):
+            return downloaded_ffprobe
+    
+    # Try to find ffprobe in PATH
+    ffprobe = shutil.which("ffprobe")
+    if ffprobe:
+        return ffprobe
     
     # Check local bin directory
     script_dir = os.path.dirname(os.path.abspath(__file__))
     local_ffprobe = os.path.join(script_dir, "bin", "ffprobe.exe" if platform.system() == "Windows" else "ffprobe")
     if os.path.isfile(local_ffprobe):
         return local_ffprobe
-    
-    # Common installation locations based on OS
+      # Common installation locations based on OS
     if platform.system() == "Windows":
         common_locations = [
             r"C:\FFmpeg\bin\ffprobe.exe",
             r"C:\Program Files\FFmpeg\bin\ffprobe.exe",
             r"C:\Program Files (x86)\FFmpeg\bin\ffprobe.exe",
-            os.path.join(os.environ.get("LOCALAPPDATA", ""), "FFmpeg", "bin", "ffprobe.exe"),
             os.path.join(os.environ.get("APPDATA", ""), "FFmpeg", "bin", "ffprobe.exe")
         ]
     else:  # Linux/Mac
@@ -181,9 +193,45 @@ def check_ffmpeg_works(ffmpeg_path):
 FFMPEG_PATH = find_ffmpeg()
 FFPROBE_PATH = find_ffprobe(FFMPEG_PATH)
 
+# Define supported formats
+AUDIO_FORMATS = ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma']
+VIDEO_FORMATS = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', 'mpeg', 'mpg', 'ts', 'mts', 'm2ts']
 
-def convert_audio_file(source_path, output_path, source_format=None, target_format=None):
-    """Convert an audio file from one format to another using FFmpeg"""
+def is_video_format(format_name):
+    """Check if the given format is a video format"""
+    return format_name.lower() in VIDEO_FORMATS
+
+def is_audio_format(format_name):
+    """Check if the given format is an audio format"""
+    return format_name.lower() in AUDIO_FORMATS
+
+def get_media_info(file_path):
+    """Get media information using ffprobe"""
+    try:
+        cmd = [FFPROBE_PATH, "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", file_path]
+        
+        kwargs = {
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE
+        }
+        
+        if platform.system() == "Windows":
+            kwargs["creationflags"] = 0x08000000  # CREATE_NO_WINDOW
+            
+        process = subprocess.Popen(cmd, **kwargs)
+        stdout, stderr = process.communicate()
+        
+        if process.returncode == 0:
+            import json
+            return json.loads(stdout.decode('utf-8'))
+        else:
+            return None
+    except Exception:
+        return None
+
+
+def convert_media_file(source_path, output_path, source_format=None, target_format=None, media_type=None):
+    """Convert a media file (audio or video) from one format to another using FFmpeg"""
     try:
         # Create output directory if it doesn't exist
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -191,8 +239,40 @@ def convert_audio_file(source_path, output_path, source_format=None, target_form
         # Define creationflags to hide command windows on Windows
         CREATE_NO_WINDOW = 0x08000000
         
-        # Use FFmpeg with flags to hide output and command windows
-        cmd = [FFMPEG_PATH, "-hide_banner", "-loglevel", "error", "-i", source_path, "-y", output_path]
+        # Determine if we're dealing with video or audio
+        if media_type is None:
+            if is_video_format(target_format) or is_video_format(source_format):
+                media_type = 'video'
+            else:
+                media_type = 'audio'
+        
+        # Build FFmpeg command based on media type and formats
+        cmd = [FFMPEG_PATH, "-hide_banner", "-loglevel", "error", "-i", source_path]
+        
+        # Add format-specific options
+        if media_type == 'video':
+            # Video conversion options
+            if target_format.lower() == 'mp4':
+                # Optimized settings for MP4 (especially good for MPEG to MP4)
+                cmd.extend(["-c:v", "libx264", "-c:a", "aac", "-crf", "23", "-preset", "medium"])
+            elif target_format.lower() == 'avi':
+                cmd.extend(["-c:v", "libx264", "-c:a", "mp3"])
+            elif target_format.lower() == 'webm':
+                cmd.extend(["-c:v", "libvpx-vp9", "-c:a", "libopus"])
+            elif target_format.lower() == 'mkv':
+                cmd.extend(["-c:v", "libx264", "-c:a", "ac3"])
+            # For other formats, let FFmpeg choose defaults
+        else:
+            # Audio conversion options (keep existing audio logic)
+            if target_format.lower() == 'mp3':
+                cmd.extend(["-c:a", "libmp3lame", "-b:a", "320k"])
+            elif target_format.lower() == 'flac':
+                cmd.extend(["-c:a", "flac"])
+            elif target_format.lower() == 'ogg':
+                cmd.extend(["-c:a", "libvorbis"])
+        
+        # Add output file and overwrite flag
+        cmd.extend(["-y", output_path])
         
         # Configure process for silent operation
         kwargs = {
@@ -207,23 +287,34 @@ def convert_audio_file(source_path, output_path, source_format=None, target_form
         # Run the conversion process
         process = subprocess.Popen(cmd, **kwargs)
         stdout, stderr = process.communicate()
-        
-        # Check if the conversion was successful
+          # Check if the conversion was successful
         if process.returncode != 0:
             error_message = stderr.decode('utf-8', errors='replace').strip()
-            if error_message and ("No such file or directory" in error_message or "Error" in error_message):
-                print(f"Error converting {os.path.basename(source_path)}: {error_message[:100]}...")
+            print(f"❌ Error converting {os.path.basename(source_path)}")
+            print(f"   FFmpeg Error: {error_message[:200]}...")
+            print(f"   Command: {' '.join(cmd[:6])}...")  # Show first part of command
             return False
         
         return True
         
     except Exception as e:
-        print(f"Error converting {source_path}: {str(e)}")
+        print(f"❌ Exception converting {os.path.basename(source_path)}: {str(e)}")
         return False
 
 
+# Keep the old function name for backward compatibility
+def convert_audio_file(source_path, output_path, source_format=None, target_format=None):
+    """Convert an audio file from one format to another using FFmpeg (legacy function)"""
+    return convert_media_file(source_path, output_path, source_format, target_format, 'audio')
+
+
 def convert_directory(input_dirs, output_dir, source_format, target_format, max_workers=None):
-    """Convert all audio files in the input directories to the target format"""
+    """Convert all media files in the input directories to the target format"""
+    
+    # Determine media type
+    is_video_conversion = is_video_format(target_format) or is_video_format(source_format)
+    media_type = 'video' if is_video_conversion else 'audio'
+    media_type_display = media_type.upper()
     
     # Collect all source files from all input directories
     all_source_files = []
@@ -247,12 +338,12 @@ def convert_directory(input_dirs, output_dir, source_format, target_format, max_
     if total_files == 0:
         print(f"No {source_format.upper()} files found in the specified directories.")
         return 0, 0
-    
-    print(f"Found {total_files} {source_format.upper()} files. Starting conversion...")
+
+    print(f"Found {total_files} {source_format.upper()} files. Starting {media_type} conversion...")
     
     # Create output directory structure
     output_path = Path(output_dir)
-    output_format_dir = output_path / (target_format.upper() + 's')  # WAVs, MP3s, etc.
+    output_format_dir = output_path / (target_format.upper() + 's')  # MP4s, WAVs, etc.
     output_format_dir.mkdir(parents=True, exist_ok=True)
     
     # Progress tracking
@@ -283,12 +374,13 @@ def convert_directory(input_dirs, output_dir, source_format, target_format, max_
         # Set the output file path with new extension
         output_file_path = target_file_dir / f"{source_file_path.stem}.{target_format}"
         
-        # Convert the file
-        success = convert_audio_file(
+        # Convert the file using the new media conversion function
+        success = convert_media_file(
             str(source_file_path), 
             str(output_file_path),
             source_format,
-            target_format
+            target_format,
+            media_type
         )
         
         with counter_lock:
@@ -316,20 +408,20 @@ def convert_directory(input_dirs, output_dir, source_format, target_format, max_
         concurrent.futures.wait(futures)
     
     # Print final progress
-    print(f"\nCompleted converting {converted_files} out of {total_files} files.")
+    print(f"\nCompleted converting {converted_files} out of {total_files} {media_type} files.")
     print(f"Output directory: {output_format_dir}")
     
     return converted_files, total_files
 
 
-class AudioConverterGUI:
-    """GUI application for audio format conversion"""
+class MediaConverterGUI:
+    """GUI application for media format conversion (audio and video)"""
     
     def __init__(self, root):
         self.root = root
-        self.root.title("Audio Format Converter")
-        self.root.geometry("900x700")
-        self.root.minsize(900, 700)
+        self.root.title("Media Format Converter")
+        self.root.geometry("950x750")
+        self.root.minsize(950, 750)
         
         # Configure the main grid
         self.root.columnconfigure(0, weight=1)
@@ -340,9 +432,8 @@ class AudioConverterGUI:
         main_frame.grid(row=0, column=0, sticky="nsew")
         main_frame.columnconfigure(0, weight=1)
         main_frame.rowconfigure(6, weight=1)  # Make log area expandable
-        
-        # Title
-        title_label = ttk.Label(main_frame, text="Audio Format Converter", font=("Arial", 16, "bold"))
+          # Title
+        title_label = ttk.Label(main_frame, text="Media Format Converter", font=("Arial", 16, "bold"))
         title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
         
         # Format selection frame
@@ -351,19 +442,31 @@ class AudioConverterGUI:
         format_frame.columnconfigure(1, weight=1)
         format_frame.columnconfigure(3, weight=1)
         
+        # Media type selection
+        media_type_frame = ttk.Frame(format_frame)
+        media_type_frame.grid(row=0, column=0, columnspan=4, sticky="ew", pady=(0, 10))
+        
+        ttk.Label(media_type_frame, text="Media Type:").pack(side=tk.LEFT, padx=(0, 10))
+        self.media_type = tk.StringVar(value="audio")
+        media_type_audio = ttk.Radiobutton(media_type_frame, text="Audio", variable=self.media_type, value="audio", command=self.update_format_options)
+        media_type_audio.pack(side=tk.LEFT, padx=(0, 15))
+        media_type_video = ttk.Radiobutton(media_type_frame, text="Video", variable=self.media_type, value="video", command=self.update_format_options)
+        media_type_video.pack(side=tk.LEFT)
+        
         # Source format
-        ttk.Label(format_frame, text="Source Format:").grid(row=0, column=0, sticky="w", padx=(0, 10))
+        ttk.Label(format_frame, text="Source Format:").grid(row=1, column=0, sticky="w", padx=(0, 10))
         self.source_format = tk.StringVar(value="mp3")
-        source_combo = ttk.Combobox(format_frame, textvariable=self.source_format, width=10)
-        source_combo['values'] = ('mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma')
-        source_combo.grid(row=0, column=1, sticky="ew", padx=5)
+        self.source_combo = ttk.Combobox(format_frame, textvariable=self.source_format, width=12)
+        self.source_combo.grid(row=1, column=1, sticky="ew", padx=5)
         
         # Target format
-        ttk.Label(format_frame, text="Target Format:").grid(row=0, column=2, sticky="w", padx=(20, 10))
+        ttk.Label(format_frame, text="Target Format:").grid(row=1, column=2, sticky="w", padx=(20, 10))
         self.target_format = tk.StringVar(value="wav")
-        target_combo = ttk.Combobox(format_frame, textvariable=self.target_format, width=10)
-        target_combo['values'] = ('mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma')
-        target_combo.grid(row=0, column=3, sticky="ew", padx=5)
+        self.target_combo = ttk.Combobox(format_frame, textvariable=self.target_format, width=12)
+        self.target_combo.grid(row=1, column=3, sticky="ew", padx=5)
+        
+        # Initialize format options
+        self.update_format_options()
         
         # Directory selection frame
         dir_frame = ttk.LabelFrame(main_frame, text="Directory Selection", padding="10")
@@ -467,11 +570,33 @@ class AudioConverterGUI:
             self.input_directories.append(default_music_dir)
             self.input_dirs_listbox.insert(tk.END, default_music_dir)
             self.output_dir.set(default_music_dir)
-        
-        # Log welcome message
-        self.log("Welcome to Audio Format Converter")
+          # Log welcome message
+        self.log("Welcome to Media Format Converter")
         self.log(f"Using FFmpeg at: {FFMPEG_PATH or 'Not found'}")
         self.root.after(100, self.check_queue)
+
+    def update_format_options(self):
+        """Update format options based on selected media type"""
+        media_type = self.media_type.get()
+        
+        if media_type == "audio":
+            formats = AUDIO_FORMATS
+            # Set default audio formats
+            if self.source_format.get() not in formats:
+                self.source_format.set("mp3")
+            if self.target_format.get() not in formats:
+                self.target_format.set("wav")
+        else:  # video
+            formats = VIDEO_FORMATS
+            # Set default video formats (highlighting MPEG to MP4)
+            if self.source_format.get() not in formats:
+                self.source_format.set("mpeg")
+            if self.target_format.get() not in formats:
+                self.target_format.set("mp4")
+        
+        # Update combobox values
+        self.source_combo['values'] = formats
+        self.target_combo['values'] = formats
 
     def log(self, message):
         """Add a message to the log area"""
@@ -650,10 +775,8 @@ class AudioConverterGUI:
                     self.message_queue.put(("log", f"Converting: {file_name}"))
 
                     # Ensure output directory exists
-                    output_file_path.parent.mkdir(parents=True, exist_ok=True)
-
-                    # Convert the file
-                    success = convert_audio_file(
+                    output_file_path.parent.mkdir(parents=True, exist_ok=True)                    # Convert the file using the new media conversion function
+                    success = convert_media_file(
                         str(source_file_path),
                         str(output_file_path),
                         source_format,
@@ -820,29 +943,89 @@ class AudioConverterGUI:
             return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
 
 
+def validate_ffmpeg_installation():
+    """Validate that FFmpeg is properly installed and working"""
+    global FFMPEG_PATH, FFPROBE_PATH
+    
+    # Always refresh paths to get the best available version
+    FFMPEG_PATH, FFPROBE_PATH = refresh_ffmpeg_paths()
+    
+    if not FFMPEG_PATH:
+        print("❌ FFmpeg not found!")
+        if platform.system() == "Windows":
+            print("🔄 Attempting to download FFmpeg...")
+            FFMPEG_PATH = download_ffmpeg_windows()
+            if FFMPEG_PATH:
+                FFPROBE_PATH = find_ffprobe(FFMPEG_PATH)
+                print("✅ FFmpeg successfully downloaded and installed!")
+            else:
+                print("❌ Failed to download FFmpeg. Please install it manually.")
+                return False
+        else:
+            print("Please install FFmpeg using your package manager.")
+            return False
+    
+    # Test if FFmpeg works
+    if not check_ffmpeg_works(FFMPEG_PATH):
+        print(f"❌ FFmpeg found at {FFMPEG_PATH} but not working properly!")
+        if platform.system() == "Windows":
+            print("🔄 Attempting to download a fresh copy...")
+            FFMPEG_PATH = download_ffmpeg_windows()
+            if FFMPEG_PATH:
+                FFPROBE_PATH = find_ffprobe(FFMPEG_PATH)
+                if check_ffmpeg_works(FFMPEG_PATH):
+                    print("✅ FFmpeg successfully updated!")
+                    return True
+        return False
+    
+    if not FFPROBE_PATH:
+        print("❌ FFprobe not found!")
+        FFPROBE_PATH = find_ffprobe(FFMPEG_PATH)
+        if not FFPROBE_PATH:
+            print("Please ensure FFprobe is installed alongside FFmpeg.")
+            return False
+    
+    print(f"✅ FFmpeg validated: {FFMPEG_PATH}")
+    print(f"✅ FFprobe validated: {FFPROBE_PATH}")
+    return True
+
+
+def refresh_ffmpeg_paths():
+    """Refresh FFmpeg and FFprobe paths to ensure we're using the best available version"""
+    global FFMPEG_PATH, FFPROBE_PATH
+    
+    # Force re-detection of FFmpeg
+    FFMPEG_PATH = find_ffmpeg()
+    FFPROBE_PATH = find_ffprobe(FFMPEG_PATH)
+    
+    return FFMPEG_PATH, FFPROBE_PATH
+
 def main():
     """Main function to parse arguments and run the appropriate mode"""
-    parser = argparse.ArgumentParser(description='Convert audio files from one format to another.')
-    parser.add_argument('-i', '--input', nargs='+', help='Input directory(ies) containing audio files')
+    parser = argparse.ArgumentParser(description='Convert media files (audio and video) from one format to another.')
+    parser.add_argument('-i', '--input', nargs='+', help='Input directory(ies) containing media files')
     parser.add_argument('-o', '--output', help='Output directory for converted files')
-    parser.add_argument('-sf', '--source-format', default='mp3', help='Source audio format (e.g., mp3, wav)')
-    parser.add_argument('-tf', '--target-format', default='wav', help='Target audio format (e.g., mp3, wav)')
+    parser.add_argument('-sf', '--source-format', default='mp3', help='Source media format (e.g., mp3, wav, mpeg, mp4)')
+    parser.add_argument('-tf', '--target-format', default='wav', help='Target media format (e.g., mp3, wav, mpeg, mp4)')
     parser.add_argument('-t', '--threads', type=int, help='Number of conversion threads to use')
     parser.add_argument('--gui', action='store_true', help='Launch the graphical user interface')
     
     args = parser.parse_args()
     
-    # Check if FFmpeg is available
-    if not FFMPEG_PATH:
-        print("Error: FFmpeg executable not found. Please install FFmpeg or make sure it's in your PATH.")
-        if platform.system() == "Windows":
-            print("The application will attempt to download and install FFmpeg automatically when you run it.")
+    # Validate FFmpeg installation
+    if not validate_ffmpeg_installation():
+        print("FFmpeg validation failed. Please install or update FFmpeg manually.")
+        if platform.system() != "Windows":
+            print("Please install FFmpeg using your package manager:")
+            print("  Ubuntu/Debian: sudo apt install ffmpeg")
+            print("  CentOS/RHEL: sudo yum install ffmpeg")
+            print("  macOS: brew install ffmpeg")
         sys.exit(1)
     
     # Launch GUI if no arguments provided or --gui flag is used
     if len(sys.argv) == 1 or args.gui:
         root = tk.Tk()
-        app = AudioConverterGUI(root)
+        app = MediaConverterGUI(root)
         root.mainloop()
     else:
         # Command-line mode - supports multiple input directories
