@@ -4,7 +4,7 @@ A powerful, user-friendly tool to convert between various audio and video format
 
 ## ✨ Features
 
-- **Multiple Media Formats**: Convert between audio (MP3, WAV, OGG, FLAC, M4A, AAC, WMA) and video (MP4, AVI, MOV, WMV, FLV, WEBM, MKV, MPEG, MPG) formats
+- **Multiple Media Formats**: Convert between audio (MP3, WAV, OGG, FLAC, M4A, AAC, WMA) and video (MP4, AVI, MOV, WMV, FLV, WEBM, MKV, MPEG, MPG) formats, including video-to-audio extraction
 - **Optimized MPEG to MP4**: Special optimizations for converting MPEG files to high-quality MP4
 - **Multiple Input Directories**: Select and process files from multiple folders simultaneously
 - **Batch Processing**: Convert multiple files at once with parallel processing
@@ -64,6 +64,9 @@ AudioFormatConverter.exe -i "C:\Videos\MPEG" -o "C:\Videos\MP4" -sf mpeg -tf mp4
 
 # Convert from single directory (audio)
 AudioFormatConverter.exe -i "C:\Music\MP3s" -o "C:\Music\WAVs" -sf mp3 -tf wav
+
+# Convert video to audio
+AudioFormatConverter.exe -i "C:\Videos\MP4" -o "C:\Audio" -sf mp4 -tf mp3
 
 # Convert from multiple directories (mixed media types)
 AudioFormatConverter.exe -i "C:\Media\Album1" "C:\Media\Videos" "C:\Downloads\Media" -o "C:\Converted" -sf flac -tf mp3

@@ -196,6 +196,7 @@ FFPROBE_PATH = find_ffprobe(FFMPEG_PATH)
 # Define supported formats
 AUDIO_FORMATS = ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma']
 VIDEO_FORMATS = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', 'mpeg', 'mpg', 'ts', 'mts', 'm2ts']
+ALL_FORMATS = VIDEO_FORMATS + AUDIO_FORMATS
 
 def is_video_format(format_name):
     """Check if the given format is a video format"""
@@ -204,6 +205,16 @@ def is_video_format(format_name):
 def is_audio_format(format_name):
     """Check if the given format is an audio format"""
     return format_name.lower() in AUDIO_FORMATS
+
+def determine_media_type(source_format=None, target_format=None):
+    """Determine conversion media type based on target format."""
+    if target_format and is_audio_format(target_format):
+        return 'audio'
+    if target_format and is_video_format(target_format):
+        return 'video'
+    if source_format and is_video_format(source_format):
+        return 'video'
+    return 'audio'
 
 def get_media_info(file_path):
     """Get media information using ffprobe"""
@@ -241,14 +252,11 @@ def convert_media_file(source_path, output_path, source_format=None, target_form
         
         # Determine if we're dealing with video or audio
         if media_type is None:
-            if is_video_format(target_format) or is_video_format(source_format):
-                media_type = 'video'
-            else:
-                media_type = 'audio'
-        
+            media_type = determine_media_type(source_format, target_format)
+
         # Build FFmpeg command based on media type and formats
         cmd = [FFMPEG_PATH, "-hide_banner", "-loglevel", "error", "-i", source_path]
-        
+
         # Add format-specific options
         if media_type == 'video':
             # Video conversion options
@@ -263,14 +271,23 @@ def convert_media_file(source_path, output_path, source_format=None, target_form
                 cmd.extend(["-c:v", "libx264", "-c:a", "ac3"])
             # For other formats, let FFmpeg choose defaults
         else:
-            # Audio conversion options (keep existing audio logic)
+            # Audio conversion options
+            cmd.extend(["-vn"])
             if target_format.lower() == 'mp3':
-                cmd.extend(["-c:a", "libmp3lame", "-b:a", "320k"])
+                cmd.extend(["-map", "0:a", "-c:a", "libmp3lame", "-b:a", "320k"])
+            elif target_format.lower() == 'wav':
+                cmd.extend(["-map", "0:a", "-c:a", "pcm_s16le"])
             elif target_format.lower() == 'flac':
-                cmd.extend(["-c:a", "flac"])
+                cmd.extend(["-map", "0:a", "-c:a", "flac"])
             elif target_format.lower() == 'ogg':
-                cmd.extend(["-c:a", "libvorbis"])
-        
+                cmd.extend(["-map", "0:a", "-c:a", "libvorbis"])
+            elif target_format.lower() in ('m4a', 'aac'):
+                cmd.extend(["-map", "0:a", "-c:a", "aac"])
+            elif target_format.lower() == 'wma':
+                cmd.extend(["-map", "0:a", "-c:a", "wmav2"])
+            else:
+                cmd.extend(["-map", "0:a"])
+
         # Add output file and overwrite flag
         cmd.extend(["-y", output_path])
         
@@ -311,9 +328,7 @@ def convert_audio_file(source_path, output_path, source_format=None, target_form
 def convert_directory(input_dirs, output_dir, source_format, target_format, max_workers=None):
     """Convert all media files in the input directories to the target format"""
     
-    # Determine media type
-    is_video_conversion = is_video_format(target_format) or is_video_format(source_format)
-    media_type = 'video' if is_video_conversion else 'audio'
+    media_type = determine_media_type(source_format, target_format)
     media_type_display = media_type.upper()
     
     # Collect all source files from all input directories
@@ -451,7 +466,9 @@ class MediaConverterGUI:
         media_type_audio = ttk.Radiobutton(media_type_frame, text="Audio", variable=self.media_type, value="audio", command=self.update_format_options)
         media_type_audio.pack(side=tk.LEFT, padx=(0, 15))
         media_type_video = ttk.Radiobutton(media_type_frame, text="Video", variable=self.media_type, value="video", command=self.update_format_options)
-        media_type_video.pack(side=tk.LEFT)
+        media_type_video.pack(side=tk.LEFT, padx=(0, 15))
+        media_type_video_to_audio = ttk.Radiobutton(media_type_frame, text="Video → Audio", variable=self.media_type, value="video_to_audio", command=self.update_format_options)
+        media_type_video_to_audio.pack(side=tk.LEFT)
         
         # Source format
         ttk.Label(format_frame, text="Source Format:").grid(row=1, column=0, sticky="w", padx=(0, 10))
@@ -586,17 +603,25 @@ class MediaConverterGUI:
                 self.source_format.set("mp3")
             if self.target_format.get() not in formats:
                 self.target_format.set("wav")
-        else:  # video
+        elif media_type == "video":
             formats = VIDEO_FORMATS
             # Set default video formats (highlighting MPEG to MP4)
             if self.source_format.get() not in formats:
                 self.source_format.set("mpeg")
             if self.target_format.get() not in formats:
                 self.target_format.set("mp4")
-        
+        else:  # video_to_audio
+            self.source_format.set(self.source_format.get() if self.source_format.get().lower() in VIDEO_FORMATS else "mp4")
+            self.target_format.set(self.target_format.get() if self.target_format.get().lower() in AUDIO_FORMATS else "mp3")
+            formats = None
+
         # Update combobox values
-        self.source_combo['values'] = formats
-        self.target_combo['values'] = formats
+        if media_type == "video_to_audio":
+            self.source_combo['values'] = VIDEO_FORMATS
+            self.target_combo['values'] = AUDIO_FORMATS
+        else:
+            self.source_combo['values'] = formats
+            self.target_combo['values'] = formats
 
     def log(self, message):
         """Add a message to the log area"""
